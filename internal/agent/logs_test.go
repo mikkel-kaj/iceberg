@@ -31,7 +31,6 @@ func TestHandleLogs(t *testing.T) {
 	ls := &logStreamerMock{}
 	a.loger = ls
 	req := httptest.NewRequest(http.MethodGet, "/services/test/logs?tail=10", nil)
-	req.Header.Set("Authorization", "Bearer token")
 	w := httptest.NewRecorder()
 	a.Router.ServeHTTP(w, req)
 	if w.Code != http.StatusOK {
@@ -49,7 +48,6 @@ func TestHandleLogsNotFound(t *testing.T) {
 	a := New("token", ":0", t.TempDir(), t.TempDir())
 	a.loger = &logStreamerMock{}
 	req := httptest.NewRequest(http.MethodGet, "/services/missing/logs", nil)
-	req.Header.Set("Authorization", "Bearer token")
 	w := httptest.NewRecorder()
 	a.Router.ServeHTTP(w, req)
 	if w.Code != http.StatusNotFound {

@@ -15,13 +15,21 @@ func plausibleEntry() Entry {
 		MinRAMMB:    400,
 		MinDiskMB:   1500,
 		BuildSpec: func(domain string, envOverrides map[string]string) (*compose.DeploySpec, error) {
+			secretKey := envOverrides["SECRET_KEY_BASE"]
+			if secretKey == "" {
+				generated, err := randomHex(32)
+				if err != nil {
+					return nil, err
+				}
+				secretKey = generated
+			}
 			baseURL := ""
 			if domain != "" {
 				baseURL = fmt.Sprintf("https://%s", domain)
 			}
 			env := mergedEnv(map[string]string{
 				"BASE_URL":            baseURL,
-				"SECRET_KEY_BASE":     "change-me",
+				"SECRET_KEY_BASE":     secretKey,
 				"DATABASE_URL":        "postgres://postgres:postgres@plausible-db:5432/plausible_db",
 				"CLICKHOUSE_DATABASE": "plausible",
 			}, envOverrides)

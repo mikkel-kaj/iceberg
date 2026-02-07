@@ -26,7 +26,6 @@ func TestCollectMetrics(t *testing.T) {
 func TestMetricsAndStatusHandlers(t *testing.T) {
 	a := New("token", ":0", t.TempDir(), t.TempDir())
 	req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
-	req.Header.Set("Authorization", "Bearer token")
 	w := httptest.NewRecorder()
 	a.Router.ServeHTTP(w, req)
 	if w.Code != http.StatusOK {
@@ -38,7 +37,6 @@ func TestMetricsAndStatusHandlers(t *testing.T) {
 	}
 
 	req = httptest.NewRequest(http.MethodGet, "/status", nil)
-	req.Header.Set("Authorization", "Bearer token")
 	w = httptest.NewRecorder()
 	a.Router.ServeHTTP(w, req)
 	if w.Code != http.StatusOK {

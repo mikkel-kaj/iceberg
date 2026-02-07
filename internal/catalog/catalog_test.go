@@ -53,6 +53,17 @@ func TestPlausible(t *testing.T) {
 	if !foundPostgres {
 		t.Fatal("expected postgres image")
 	}
+	if got := spec.Services[0].Env["SECRET_KEY_BASE"]; got == "" || got == "change-me" {
+		t.Fatalf("expected generated SECRET_KEY_BASE, got %q", got)
+	}
+	override := "plausible-secret"
+	specOverride, err := e.BuildSpec("analytics.test.com", map[string]string{"SECRET_KEY_BASE": override})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if specOverride.Services[0].Env["SECRET_KEY_BASE"] != override {
+		t.Fatal("expected SECRET_KEY_BASE override to be used")
+	}
 	mustComposeYAML(t, *spec)
 }
 

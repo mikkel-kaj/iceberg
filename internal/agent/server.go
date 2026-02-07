@@ -43,15 +43,15 @@ func New(token, listenAddr, servicesDir, caddyDir string) *Agent {
 }
 
 func (a *Agent) registerRoutes() {
-	a.Router.Handle("/", a.AuthMiddleware(http.HandlerFunc(a.handleRoot)))
-	a.Router.Handle("/health", a.AuthMiddleware(http.HandlerFunc(a.handleHealth)))
-	a.Router.Handle("/status", a.AuthMiddleware(http.HandlerFunc(a.handleStatus)))
-	a.Router.Handle("/metrics", a.AuthMiddleware(http.HandlerFunc(a.handleMetrics)))
-	a.Router.Handle("/services", a.AuthMiddleware(http.HandlerFunc(a.handleListServices)))
-	a.Router.Handle("/services/", a.AuthMiddleware(http.HandlerFunc(a.handleServiceRoutes)))
+	a.Router.Handle("/", http.HandlerFunc(a.handleRoot))
+	a.Router.Handle("/health", http.HandlerFunc(a.handleHealth))
+	a.Router.Handle("/status", http.HandlerFunc(a.handleStatus))
+	a.Router.Handle("/metrics", http.HandlerFunc(a.handleMetrics))
+	a.Router.Handle("/services", http.HandlerFunc(a.handleListServices))
+	a.Router.Handle("/services/", http.HandlerFunc(a.handleServiceRoutes))
 
 	static, _ := fsSub(dashboard.Static, "static")
-	a.Router.Handle("/dashboard/", a.AuthMiddleware(http.StripPrefix("/dashboard/", http.FileServer(http.FS(static)))))
+	a.Router.Handle("/dashboard/", http.StripPrefix("/dashboard/", http.FileServer(http.FS(static))))
 }
 
 func (a *Agent) Start(ctx context.Context) error {
@@ -132,12 +132,21 @@ func (a *Agent) handleServiceRoutes(w http.ResponseWriter, r *http.Request) {
 	action := parts[1]
 	switch {
 	case action == "deploy" && r.Method == http.MethodPost:
+		if !a.requireAuth(w, r) {
+			return
+		}
 		a.handleDeploy(w, r)
 	case action == "destroy" && r.Method == http.MethodDelete:
+		if !a.requireAuth(w, r) {
+			return
+		}
 		a.handleDestroy(w, r)
 	case action == "logs" && r.Method == http.MethodGet:
 		a.handleLogs(w, r)
 	case action == "restart" && r.Method == http.MethodPost:
+		if !a.requireAuth(w, r) {
+			return
+		}
 		a.handleRestart(w, r)
 	default:
 		http.NotFound(w, r)

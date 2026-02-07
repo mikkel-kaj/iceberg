@@ -1,4 +1,4 @@
 bin/
-.ella/
+.iceberg/
 *.exe
 .coverage
