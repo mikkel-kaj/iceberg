@@ -3,6 +3,7 @@ package agent
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"os/exec"
 	"strconv"
@@ -21,25 +22,42 @@ func (e *execRunner) Run(ctx context.Context, dir string, name string, args ...s
 }
 
 type LogStreamer interface {
-	Read(ctx context.Context, container string, tail int, follow bool) (io.ReadCloser, error)
+	Read(ctx context.Context, serviceDir, service string, tail int, follow bool) (io.ReadCloser, error)
 }
 
 type dockerLogStreamer struct{}
 
-func (d *dockerLogStreamer) Read(ctx context.Context, container string, tail int, follow bool) (io.ReadCloser, error) {
-	args := []string{"logs", "--tail", itoa(tail)}
-	if follow {
-		args = append(args, "--follow")
-	}
-	args = append(args, container)
-	cmd := exec.CommandContext(ctx, "docker", args...)
+func (d *dockerLogStreamer) Read(ctx context.Context, serviceDir, service string, tail int, follow bool) (io.ReadCloser, error) {
 	if !follow {
-		out, err := cmd.CombinedOutput()
-		if err != nil {
-			return nil, err
+		out, err := d.readOnce(ctx, serviceDir, service, tail, true)
+		if err == nil {
+			return io.NopCloser(bytesReader(out)), nil
 		}
-		return io.NopCloser(bytesReader(out)), nil
+		outFallback, errFallback := d.readOnce(ctx, serviceDir, service, tail, false)
+		if errFallback != nil {
+			return nil, fmt.Errorf("docker compose logs failed: %v; docker-compose logs failed: %w", err, errFallback)
+		}
+		return io.NopCloser(bytesReader(outFallback)), nil
 	}
+
+	stream, err := d.readFollow(ctx, serviceDir, service, tail, true)
+	if err == nil {
+		return stream, nil
+	}
+	streamFallback, errFallback := d.readFollow(ctx, serviceDir, service, tail, false)
+	if errFallback != nil {
+		return nil, fmt.Errorf("docker compose logs follow failed: %v; docker-compose logs follow failed: %w", err, errFallback)
+	}
+	return streamFallback, nil
+}
+
+func (d *dockerLogStreamer) readOnce(ctx context.Context, dir, service string, tail int, usePlugin bool) ([]byte, error) {
+	cmd := composeLogsCommand(ctx, dir, service, tail, false, usePlugin)
+	return cmd.CombinedOutput()
+}
+
+func (d *dockerLogStreamer) readFollow(ctx context.Context, dir, service string, tail int, usePlugin bool) (io.ReadCloser, error) {
+	cmd := composeLogsCommand(ctx, dir, service, tail, true, usePlugin)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return nil, err
@@ -51,6 +69,28 @@ func (d *dockerLogStreamer) Read(ctx context.Context, container string, tail int
 		_ = cmd.Process.Kill()
 		return cmd.Wait()
 	}}, nil
+}
+
+func composeLogsCommand(ctx context.Context, dir, service string, tail int, follow, usePlugin bool) *exec.Cmd {
+	if usePlugin {
+		args := []string{"compose", "logs", "--tail", itoa(tail)}
+		if follow {
+			args = append(args, "--follow")
+		}
+		args = append(args, service)
+		cmd := exec.CommandContext(ctx, "docker", args...)
+		cmd.Dir = dir
+		return cmd
+	}
+
+	args := []string{"logs", "--tail", itoa(tail)}
+	if follow {
+		args = append(args, "--follow")
+	}
+	args = append(args, service)
+	cmd := exec.CommandContext(ctx, "docker-compose", args...)
+	cmd.Dir = dir
+	return cmd
 }
 
 type processReadCloser struct {

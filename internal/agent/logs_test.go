@@ -12,12 +12,14 @@ import (
 )
 
 type logStreamerMock struct {
-	container string
-	tail      int
-	follow    bool
+	serviceDir string
+	container  string
+	tail       int
+	follow     bool
 }
 
-func (l *logStreamerMock) Read(_ context.Context, container string, tail int, follow bool) (io.ReadCloser, error) {
+func (l *logStreamerMock) Read(_ context.Context, serviceDir, container string, tail int, follow bool) (io.ReadCloser, error) {
+	l.serviceDir = serviceDir
 	l.container = container
 	l.tail = tail
 	l.follow = follow
@@ -39,7 +41,7 @@ func TestHandleLogs(t *testing.T) {
 	if ct := w.Header().Get("Content-Type"); !strings.Contains(ct, "text/plain") {
 		t.Fatalf("unexpected content type %s", ct)
 	}
-	if ls.container != "test" || ls.tail != 10 {
+	if ls.container != "test" || ls.tail != 10 || ls.serviceDir == "" {
 		t.Fatalf("unexpected log call: %#v", ls)
 	}
 }

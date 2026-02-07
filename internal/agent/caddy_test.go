@@ -11,19 +11,19 @@ import (
 
 func TestGenerateWriteCaddyfile(t *testing.T) {
 	a := New("token", ":0", t.TempDir(), t.TempDir())
-	body, err := a.GenerateCaddyfile([]CaddyEntry{{Domain: "domain.com", UpstreamHost: "svc", UpstreamPort: 3000}, {Domain: "other.com", UpstreamHost: "svc2", UpstreamPort: 8080}})
+	body, err := a.GenerateCaddyfile([]CaddyEntry{{Domain: "domain.com", UpstreamHost: "host.docker.internal", UpstreamPort: 3000}, {Domain: "other.com", UpstreamHost: "host.docker.internal", UpstreamPort: 8080}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(body), "domain.com") || !strings.Contains(string(body), "reverse_proxy svc:3000") {
+	if !strings.Contains(string(body), "domain.com") || !strings.Contains(string(body), "reverse_proxy host.docker.internal:3000") {
 		t.Fatalf("unexpected caddyfile %s", string(body))
 	}
-	if err := a.WriteCaddyfile([]CaddyEntry{{Domain: "domain.com", UpstreamHost: "svc", UpstreamPort: 3000}}); err != nil {
+	if err := a.WriteCaddyfile([]CaddyEntry{{Domain: "domain.com", UpstreamHost: "host.docker.internal", UpstreamPort: 3000}}); err != nil {
 		t.Fatal(err)
 	}
 	path := filepath.Join(a.CaddyDir, "Caddyfile")
 	first, _ := os.ReadFile(path)
-	if err := a.WriteCaddyfile([]CaddyEntry{{Domain: "domain.com", UpstreamHost: "svc", UpstreamPort: 3000}}); err != nil {
+	if err := a.WriteCaddyfile([]CaddyEntry{{Domain: "domain.com", UpstreamHost: "host.docker.internal", UpstreamPort: 3000}}); err != nil {
 		t.Fatal(err)
 	}
 	second, _ := os.ReadFile(path)
@@ -44,5 +44,8 @@ func TestGetCaddyEntries(t *testing.T) {
 	}
 	if len(entries) != 1 || entries[0].Domain != "a.test.com" {
 		t.Fatalf("unexpected entries %#v", entries)
+	}
+	if entries[0].UpstreamHost != "host.docker.internal" || entries[0].UpstreamPort != 80 {
+		t.Fatalf("unexpected upstream %#v", entries[0])
 	}
 }

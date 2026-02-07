@@ -56,21 +56,34 @@ func newDeployCmd(cfgPath *string) *cobra.Command {
 				serviceName = entry.Name
 			}
 
-			ag := newAgentClient("http://"+server.IP+":8443", server.AgentToken)
+			baseURL, err := agentBaseURL(server)
+			if err != nil {
+				return err
+			}
+			ag := newAgentClient(baseURL, server.AgentToken)
 			if err := ag.Deploy(context.Background(), serviceName, spec, domainOrDefault(domain, cfg.DefaultDomain)); err != nil {
 				return err
 			}
 
 			deployedDomain := domainOrDefault(domain, cfg.DefaultDomain)
+			dnsTarget := publicDNSIP(server)
 			if deployedDomain != "" {
 				if cfg.DNS != nil && strings.EqualFold(cfg.DNS.Provider, "cloudflare") {
-					cf := newCloudflareClient(cfg.DNS.CloudflareToken)
-					zoneID, err := cf.GetZoneID(context.Background(), deployedDomain)
-					if err == nil {
-						_, _ = cf.CreateARecord(context.Background(), zoneID, deployedDomain, server.IP)
+					if dnsTarget == "" {
+						fmt.Fprintf(cmd.OutOrStdout(), "Manual DNS required: create A record %s -> <server-public-ip>\n", deployedDomain)
+					} else {
+						cf := newCloudflareClient(cfg.DNS.CloudflareToken)
+						zoneID, err := cf.GetZoneID(context.Background(), deployedDomain)
+						if err != nil {
+							fmt.Fprintf(cmd.OutOrStdout(), "Cloudflare zone lookup failed (%v). Manual DNS required: create A record %s -> %s\n", err, deployedDomain, dnsTarget)
+						} else if _, err := cf.CreateARecord(context.Background(), zoneID, deployedDomain, dnsTarget); err != nil {
+							fmt.Fprintf(cmd.OutOrStdout(), "Cloudflare DNS update failed (%v). Manual DNS required: create A record %s -> %s\n", err, deployedDomain, dnsTarget)
+						}
 					}
 				} else {
-					fmt.Fprintf(cmd.OutOrStdout(), "Manual DNS required: create A record %s -> %s\n", deployedDomain, server.IP)
+					if dnsTarget != "" {
+						fmt.Fprintf(cmd.OutOrStdout(), "Manual DNS required: create A record %s -> %s\n", deployedDomain, dnsTarget)
+					}
 				}
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "Deployed %s to %s\n", serviceName, server.Name)

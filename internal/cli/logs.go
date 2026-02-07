@@ -24,7 +24,11 @@ func newLogsCmd(cfgPath *string) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			ag := newAgentClient("http://"+srv.IP+":8443", srv.AgentToken)
+			baseURL, err := agentBaseURL(srv)
+			if err != nil {
+				return err
+			}
+			ag := newAgentClient(baseURL, srv.AgentToken)
 			rc, err := ag.Logs(context.Background(), name)
 			if err != nil {
 				return err

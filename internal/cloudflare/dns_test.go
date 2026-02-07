@@ -71,3 +71,32 @@ func TestCreateFindDeleteRecord(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestCreateARecordUpdatesExisting(t *testing.T) {
+	var putSeen bool
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/zones/z1/dns_records"):
+			_, _ = w.Write([]byte(`{"result":[{"id":"r1","name":"a.test.com","type":"A","content":"1.2.3.4"}]}`))
+		case r.Method == http.MethodPut && r.URL.Path == "/zones/z1/dns_records/r1":
+			putSeen = true
+			_, _ = w.Write([]byte(`{"result":{"id":"r1","name":"a.test.com","type":"A","content":"5.6.7.8"}}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer s.Close()
+
+	c := NewClient("token")
+	c.BaseURL = s.URL
+	rec, err := c.CreateARecord(context.Background(), "z1", "a.test.com", "5.6.7.8")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !putSeen {
+		t.Fatal("expected update call")
+	}
+	if rec.Content != "5.6.7.8" {
+		t.Fatalf("unexpected content %s", rec.Content)
+	}
+}

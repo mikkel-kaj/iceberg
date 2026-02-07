@@ -113,6 +113,24 @@ func (c *Client) GetZoneID(ctx context.Context, domain string) (string, error) {
 }
 
 func (c *Client) CreateARecord(ctx context.Context, zoneID, subdomain, ip string) (*DNSRecord, error) {
+	existing, err := c.FindRecord(ctx, zoneID, subdomain)
+	if err != nil {
+		return nil, err
+	}
+	if existing != nil {
+		if existing.Content == ip {
+			return existing, nil
+		}
+		var updateResp struct {
+			Result DNSRecord `json:"result"`
+		}
+		payload := map[string]any{"type": "A", "name": subdomain, "content": ip, "proxied": false}
+		if err := c.do(ctx, http.MethodPut, "/zones/"+zoneID+"/dns_records/"+existing.ID, payload, &updateResp); err != nil {
+			return nil, err
+		}
+		return &updateResp.Result, nil
+	}
+
 	var resp struct {
 		Result DNSRecord `json:"result"`
 	}

@@ -12,6 +12,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var bootstrapServer = bootstrapServerDefault
+
 func newServerCmd(cfgPath *string) *cobra.Command {
 	cmd := &cobra.Command{Use: "server", Short: "Manage servers"}
 	cmd.AddCommand(newServerCreateCmd(cfgPath), newServerDestroyCmd(cfgPath), newServerListCmd(cfgPath))
@@ -30,7 +32,7 @@ func newServerCreateCmd(cfgPath *string) *cobra.Command {
 			h := newHetznerClient(cfg.HetznerToken)
 			name := nextServerName(cfg.Servers)
 
-			pub, _, err := hetzner.GenerateSSHKeyPair()
+			pub, prv, err := hetzner.GenerateSSHKeyPair()
 			if err != nil {
 				return err
 			}
@@ -62,11 +64,31 @@ func newServerCreateCmd(cfgPath *string) *cobra.Command {
 				return err
 			}
 
-			cfg.AddServer(config.ServerEntry{Name: name, TailscaleHostname: name, HetznerID: srv.ID, IP: srv.IPv4, AgentToken: agentToken, SSHKeyID: sshKey.ID, FirewallID: fw.ID})
+			agentIP, err := bootstrapServer(context.Background(), name, srv.IPv4, agentToken, prv)
+			if err != nil {
+				_ = h.DeleteServer(context.Background(), srv.ID)
+				_ = h.DeleteSSHKey(context.Background(), sshKey.ID)
+				_ = h.DeleteFirewall(context.Background(), fw.ID)
+				return fmt.Errorf("bootstrap %s: %w", name, err)
+			}
+
+			cfg.AddServer(config.ServerEntry{
+				Name:              name,
+				TailscaleHostname: name,
+				HetznerID:         srv.ID,
+				IP:                agentIP,
+				PublicIP:          srv.IPv4,
+				AgentToken:        agentToken,
+				SSHKeyID:          sshKey.ID,
+				FirewallID:        fw.ID,
+			})
 			if err := cfg.Save(*cfgPath); err != nil {
+				_ = h.DeleteServer(context.Background(), srv.ID)
+				_ = h.DeleteSSHKey(context.Background(), sshKey.ID)
+				_ = h.DeleteFirewall(context.Background(), fw.ID)
 				return err
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "Created server %s (%s)\n", name, srv.IPv4)
+			fmt.Fprintf(cmd.OutOrStdout(), "Created server %s (public %s, agent %s)\n", name, srv.IPv4, agentIP)
 			return nil
 		},
 	}
@@ -86,7 +108,7 @@ func newServerListCmd(cfgPath *string) *cobra.Command {
 				return nil
 			}
 			for _, s := range cfg.Servers {
-				fmt.Fprintf(cmd.OutOrStdout(), "%s\t%s\t%d\n", s.Name, s.IP, s.HetznerID)
+				fmt.Fprintf(cmd.OutOrStdout(), "%s\t%s\t%s\t%d\n", s.Name, agentEndpointIP(&s), publicDNSIP(&s), s.HetznerID)
 			}
 			return nil
 		},

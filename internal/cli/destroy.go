@@ -25,7 +25,11 @@ func newDestroyCmd(cfgPath *string) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			ag := newAgentClient("http://"+srv.IP+":8443", srv.AgentToken)
+			baseURL, err := agentBaseURL(srv)
+			if err != nil {
+				return err
+			}
+			ag := newAgentClient(baseURL, srv.AgentToken)
 			if err := ag.Destroy(context.Background(), name); err != nil {
 				return err
 			}

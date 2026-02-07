@@ -26,7 +26,8 @@ type ServerEntry struct {
 	Name              string `yaml:"name"`
 	TailscaleHostname string `yaml:"tailscale_hostname"`
 	HetznerID         int64  `yaml:"hetzner_id"`
-	IP                string `yaml:"ip"`
+	IP                string `yaml:"ip"` // agent endpoint IP (prefer Tailscale)
+	PublicIP          string `yaml:"public_ip,omitempty"`
 	AgentToken        string `yaml:"agent_token"`
 	SSHKeyID          int64  `yaml:"ssh_key_id,omitempty"`
 	FirewallID        int64  `yaml:"firewall_id,omitempty"`

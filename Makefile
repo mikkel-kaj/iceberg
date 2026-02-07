@@ -1,11 +1,16 @@
 BINDIR := bin
 
-.PHONY: build test lint clean sqlc db-migrate-up db-migrate-down
+.PHONY: build install test lint clean sqlc db-migrate-up db-migrate-down
 
 build:
 	mkdir -p $(BINDIR)
 	go build -o $(BINDIR)/iceberg ./cmd/iceberg
 	go build -o $(BINDIR)/iceberg-agent ./cmd/iceberg-agent
+
+install: build
+	mkdir -p $$HOME/.local/bin
+	cp $(BINDIR)/iceberg $$HOME/.local/bin/iceberg
+	cp $(BINDIR)/iceberg-agent $$HOME/.local/bin/iceberg-agent
 
 test:
 	go test ./...

@@ -28,7 +28,7 @@ func (a *Agent) handleLogs(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	follow := r.URL.Query().Get("follow") == "true"
-	reader, err := a.loger.Read(r.Context(), name, tail, follow)
+	reader, err := a.loger.Read(r.Context(), dir, name, tail, follow)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return

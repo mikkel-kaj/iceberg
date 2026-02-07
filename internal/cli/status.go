@@ -23,7 +23,11 @@ func newStatusCmd(cfgPath *string) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			ag := newAgentClient("http://"+srv.IP+":8443", srv.AgentToken)
+			baseURL, err := agentBaseURL(srv)
+			if err != nil {
+				return err
+			}
+			ag := newAgentClient(baseURL, srv.AgentToken)
 			st, err := ag.Status(context.Background())
 			if err != nil {
 				return err

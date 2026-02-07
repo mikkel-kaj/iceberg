@@ -34,7 +34,7 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 			Provider:        "cloudflare",
 			CloudflareToken: "cf",
 		},
-		Servers: []ServerEntry{{Name: "iceberg-01", IP: "1.2.3.4", AgentToken: "a", HetznerID: 42}},
+		Servers: []ServerEntry{{Name: "iceberg-01", IP: "100.64.0.10", PublicIP: "1.2.3.4", AgentToken: "a", HetznerID: 42}},
 	}
 	if err := cfg.Save(path); err != nil {
 		t.Fatal(err)
@@ -45,6 +45,9 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 	}
 	if loaded.HetznerToken != cfg.HetznerToken || loaded.DNS.Provider != "cloudflare" || len(loaded.Servers) != 1 {
 		t.Fatalf("unexpected load result: %#v", loaded)
+	}
+	if loaded.Servers[0].PublicIP != "1.2.3.4" || loaded.Servers[0].IP != "100.64.0.10" {
+		t.Fatalf("unexpected server ip fields %#v", loaded.Servers[0])
 	}
 }
 

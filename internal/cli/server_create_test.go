@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"context"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -11,9 +12,16 @@ import (
 
 func TestServerCreateAndNaming(t *testing.T) {
 	oldH := newHetznerClient
-	defer func() { newHetznerClient = oldH }()
+	oldBootstrap := bootstrapServer
+	defer func() {
+		newHetznerClient = oldH
+		bootstrapServer = oldBootstrap
+	}()
 	mh := &mockHetzner{}
 	newHetznerClient = func(token string) HetznerAPI { return mh }
+	bootstrapServer = func(ctx context.Context, serverName, publicIP, agentToken string, privateKey []byte) (string, error) {
+		return "100.64.0.10", nil
+	}
 
 	cfgPath := filepath.Join(t.TempDir(), ".iceberg", "config.yaml")
 	cfg := &config.Config{HetznerToken: "token", TailscaleKey: "ts", Servers: []config.ServerEntry{{Name: "iceberg-01"}}}

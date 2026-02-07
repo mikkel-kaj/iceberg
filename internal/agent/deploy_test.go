@@ -16,6 +16,7 @@ import (
 type runnerMock struct {
 	calls []runnerCall
 	err   error
+	errs  []error
 }
 
 type runnerCall struct {
@@ -26,6 +27,11 @@ type runnerCall struct {
 
 func (r *runnerMock) Run(_ context.Context, dir string, name string, args ...string) error {
 	r.calls = append(r.calls, runnerCall{dir: dir, name: name, args: args})
+	if len(r.errs) > 0 {
+		next := r.errs[0]
+		r.errs = r.errs[1:]
+		return next
+	}
 	return r.err
 }
 

@@ -73,10 +73,25 @@ runcmd:
   - tailscale up --authkey={{ .TailscaleKey }} --ssh --hostname={{ .Hostname }}
   - systemctl restart ssh
   - systemctl enable --now docker
+  - systemctl disable --now caddy || true
+  - |
+    if ! docker compose version >/dev/null 2>&1; then
+      if ! command -v docker-compose >/dev/null 2>&1; then
+        arch="$(uname -m)"
+        case "$arch" in
+          x86_64|amd64) compose_arch="x86_64" ;;
+          aarch64|arm64) compose_arch="aarch64" ;;
+          *) echo "unsupported architecture for docker compose: $arch" >&2; exit 1 ;;
+        esac
+        mkdir -p /usr/local/lib/docker/cli-plugins
+        curl -fsSL "https://github.com/docker/compose/releases/download/v2.29.7/docker-compose-linux-${compose_arch}" -o /usr/local/lib/docker/cli-plugins/docker-compose
+        chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+      fi
+    fi
   - mkdir -p /opt/iceberg/services /opt/iceberg/caddy/caddy_data /opt/iceberg/caddy/caddy_config
   - mv /tmp/caddy-compose.yaml /opt/iceberg/caddy/caddy-compose.yaml
   - mv /tmp/Caddyfile /opt/iceberg/caddy/Caddyfile
-  - cd /opt/iceberg/caddy && docker compose -f caddy-compose.yaml up -d
+  - cd /opt/iceberg/caddy && if docker compose version >/dev/null 2>&1; then docker compose -f caddy-compose.yaml up -d; else docker-compose -f caddy-compose.yaml up -d; fi
 `
 
 func RenderCloudInit(params CloudInitParams) (string, error) {

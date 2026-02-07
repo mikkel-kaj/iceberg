@@ -18,7 +18,7 @@ func (a *Agent) handleRestart(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, fmt.Errorf("service %s not found", name))
 		return
 	}
-	if err := a.runInDir(r.Context(), dir, "docker", "compose", "restart"); err != nil {
+	if err := a.runCompose(r.Context(), dir, "restart"); err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}

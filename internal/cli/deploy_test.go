@@ -31,11 +31,15 @@ func TestDeployCatalogAndManualDNS(t *testing.T) {
 	oldA, oldCF := newAgentClient, newCloudflareClient
 	defer func() { newAgentClient, newCloudflareClient = oldA, oldCF }()
 	ma := &mockAgent{}
-	newAgentClient = func(baseURL, token string) AgentAPI { return ma }
+	var baseURLSeen string
+	newAgentClient = func(baseURL, token string) AgentAPI {
+		baseURLSeen = baseURL
+		return ma
+	}
 	newCloudflareClient = func(token string) CloudflareAPI { return &mockCloudflare{zoneID: "z1"} }
 
 	cfgPath := filepath.Join(t.TempDir(), "config.yaml")
-	cfg := &config.Config{DefaultDomain: "status.test.com", Servers: []config.ServerEntry{{Name: "iceberg-01", IP: "100.64.0.1", AgentToken: "tok"}}}
+	cfg := &config.Config{DefaultDomain: "status.test.com", Servers: []config.ServerEntry{{Name: "iceberg-01", IP: "100.64.0.1", PublicIP: "1.2.3.4", AgentToken: "tok"}}}
 	_ = cfg.Save(cfgPath)
 
 	cmd := newDeployCmd(&cfgPath)
@@ -48,7 +52,10 @@ func TestDeployCatalogAndManualDNS(t *testing.T) {
 	if ma.deployName != "uptime-kuma" {
 		t.Fatalf("unexpected deploy name %s", ma.deployName)
 	}
-	if !strings.Contains(buf.String(), "Manual DNS required") {
+	if baseURLSeen != "http://100.64.0.1:8443" {
+		t.Fatalf("unexpected agent base url %q", baseURLSeen)
+	}
+	if !strings.Contains(buf.String(), "Manual DNS required: create A record status.test.com -> 1.2.3.4") {
 		t.Fatalf("expected manual dns message got %q", buf.String())
 	}
 }

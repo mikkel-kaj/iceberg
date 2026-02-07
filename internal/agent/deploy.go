@@ -50,11 +50,14 @@ func (a *Agent) handleDeploy(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
-	if err := a.runner.Run(r.Context(), filepath.Join(a.ServicesDir, name), "docker", "compose", "up", "-d"); err != nil {
+	if err := a.runCompose(r.Context(), filepath.Join(a.ServicesDir, name), "up", "-d"); err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
-	_ = a.syncCaddy(r.Context())
+	if err := a.syncCaddy(r.Context()); err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "deployed"})
 }
 
@@ -97,12 +100,15 @@ func (a *Agent) handleDestroy(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, fmt.Errorf("service %s not found", name))
 		return
 	}
-	_ = a.runner.Run(r.Context(), dir, "docker", "compose", "down", "--remove-orphans")
+	_ = a.runCompose(r.Context(), dir, "down", "--remove-orphans")
 	if err := os.RemoveAll(dir); err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
-	_ = a.syncCaddy(r.Context())
+	if err := a.syncCaddy(r.Context()); err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "destroyed"})
 }
 

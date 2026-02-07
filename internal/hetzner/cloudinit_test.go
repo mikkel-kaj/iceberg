@@ -27,6 +27,12 @@ func TestRenderCloudInit(t *testing.T) {
 	if !strings.Contains(out, "image: caddy:2") || !strings.Contains(out, "caddy-compose.yaml") {
 		t.Fatal("missing Docker-based caddy bootstrap")
 	}
+	if !strings.Contains(out, "systemctl disable --now caddy || true") {
+		t.Fatal("missing defensive disable of system caddy package service")
+	}
+	if !strings.Contains(out, "docker-compose-linux-${compose_arch}") {
+		t.Fatal("missing docker compose plugin fallback installer")
+	}
 	var parsed any
 	if err := yaml.Unmarshal([]byte(strings.TrimPrefix(out, "#cloud-config\n")), &parsed); err != nil {
 		t.Fatalf("invalid yaml: %v", err)

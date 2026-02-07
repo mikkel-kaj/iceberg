@@ -1,6 +1,6 @@
-# Iceberg (Iceberg)
+# Iceberg
 
-Iceberg is the implementation of Iceberg: a self-hosting control plane with:
+Iceberg is a self-hosting control plane with:
 - `iceberg` CLI for provisioning and operations
 - `iceberg-agent` for on-server deployment/health APIs
 - Built-in service catalog (Uptime Kuma, Plausible, n8n, Gitea, Supabase)
@@ -53,6 +53,12 @@ iceberg logs <service>
 iceberg destroy <service>
 iceberg catalog
 ```
+
+`iceberg server create` now bootstraps the server automatically:
+- Builds a Linux `iceberg-agent` binary (or uses `ICEBERG_AGENT_BINARY` if provided)
+- Uploads and installs `iceberg-agent` systemd service
+- Ensures Docker Compose is available (`docker compose` plugin or `docker-compose`)
+- Stores both agent endpoint IP (Tailscale) and public IP in config
 
 ## Agent endpoints
 
