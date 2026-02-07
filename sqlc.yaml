@@ -1,0 +1,12 @@
+version: "2"
+sql:
+  - engine: "postgresql"
+    schema: "db/schema/schema.sql"
+    queries: "db/query"
+    gen:
+      go:
+        package: "sqlcdb"
+        out: "internal/adapters/db/sqlc"
+        emit_json_tags: true
+        emit_interface: false
+        emit_empty_slices: true

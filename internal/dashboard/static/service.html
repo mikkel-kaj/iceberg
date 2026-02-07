@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Service detail</title>
+  <link rel="stylesheet" href="/dashboard/style.css">
+</head>
+<body>
+  <main class="container">
+    <h1 id="title">Service</h1>
+    <pre id="detail"></pre>
+    <h2>Logs</h2>
+    <pre id="logs"></pre>
+    <div class="actions">
+      <button id="restart">Restart</button>
+      <button id="destroy">Destroy</button>
+    </div>
+  </main>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const name = params.get('name');
+    document.getElementById('title').textContent = `service: ${name}`;
+
+    async function load() {
+      const detailResp = await fetch(`/services/${name}`);
+      const detail = await detailResp.json();
+      document.getElementById('detail').textContent = JSON.stringify(detail, null, 2);
+
+      const logsResp = await fetch(`/services/${name}/logs?tail=100`);
+      document.getElementById('logs').textContent = await logsResp.text();
+    }
+
+    document.getElementById('restart').onclick = async () => {
+      await fetch(`/services/${name}/restart`, { method: 'POST' });
+      load();
+    };
+    document.getElementById('destroy').onclick = async () => {
+      if (!confirm(`Destroy ${name}?`)) return;
+      await fetch(`/services/${name}/destroy`, { method: 'DELETE' });
+      window.location.href = '/dashboard/';
+    };
+
+    load();
+  </script>
+</body>
+</html>
