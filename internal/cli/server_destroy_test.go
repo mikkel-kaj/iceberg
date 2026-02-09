@@ -10,17 +10,13 @@ import (
 func TestServerDestroyUsesTerraformProvisioner(t *testing.T) {
 	oldTerraform := newTerraformClient
 	oldTerraformBinaryPresent := terraformBinaryPresent
-	oldHetzner := newHetznerClient
 	defer func() {
 		newTerraformClient = oldTerraform
 		terraformBinaryPresent = oldTerraformBinaryPresent
-		newHetznerClient = oldHetzner
 	}()
 
 	mt := &mockTerraform{}
-	mh := &mockHetzner{}
 	newTerraformClient = func() TerraformAPI { return mt }
-	newHetznerClient = func(token string) HetznerAPI { return mh }
 	terraformBinaryPresent = func() bool { return true }
 
 	cfgPath := filepath.Join(t.TempDir(), ".iceberg", "config.yaml")
@@ -42,7 +38,37 @@ func TestServerDestroyUsesTerraformProvisioner(t *testing.T) {
 	if len(mt.destroyCalls) != 1 {
 		t.Fatalf("expected terraform destroy call, got %d", len(mt.destroyCalls))
 	}
-	if got := len(mh.calls); got != 0 {
-		t.Fatalf("expected no hetzner calls, got %d", got)
+}
+
+func TestServerDestroyRejectsNonTerraformProvisioner(t *testing.T) {
+	oldTerraform := newTerraformClient
+	oldTerraformBinaryPresent := terraformBinaryPresent
+	defer func() {
+		newTerraformClient = oldTerraform
+		terraformBinaryPresent = oldTerraformBinaryPresent
+	}()
+
+	mt := &mockTerraform{}
+	newTerraformClient = func() TerraformAPI { return mt }
+	terraformBinaryPresent = func() bool { return true }
+
+	cfgPath := filepath.Join(t.TempDir(), ".iceberg", "config.yaml")
+	cfg := &config.Config{
+		HetznerToken: "token",
+		Servers: []config.ServerEntry{
+			{Name: "legacy-01", Provisioner: "api"},
+		},
+	}
+	if err := cfg.Save(cfgPath); err != nil {
+		t.Fatal(err)
+	}
+
+	cmd := newServerDestroyCmd(&cfgPath)
+	cmd.SetArgs([]string{"legacy-01"})
+	if err := cmd.Execute(); err == nil {
+		t.Fatal("expected non-terraform rejection")
+	}
+	if len(mt.destroyCalls) != 0 {
+		t.Fatalf("expected no terraform destroy calls, got %d", len(mt.destroyCalls))
 	}
 }

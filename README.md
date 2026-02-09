@@ -43,7 +43,7 @@ make lint
 
 ```bash
 iceberg init
-iceberg server create --provisioner auto
+iceberg server create
 iceberg server list
 iceberg server destroy <name>
 iceberg deploy uptime-kuma --domain status.example.com
@@ -61,10 +61,9 @@ iceberg catalog
 - Ensures Docker Compose is available (`docker compose` plugin or `docker-compose`)
 - Stores both agent endpoint IP (Tailscale) and public IP in config
 - Supports provisioners:
-  - `--provisioner auto` (default): Terraform if installed, otherwise direct Hetzner API
-  - `--provisioner terraform`: force Terraform
-  - `--provisioner api`: force direct Hetzner API
-  - Terraform mode requires local `terraform` binary and keeps state in `~/.iceberg/terraform/<server-name>`
+  - Terraform only for server lifecycle
+  - Local `terraform` binary is required
+  - State is stored in `~/.iceberg/terraform/<server-name>`
 
 ## Secret env values (Bitwarden CLI)
 

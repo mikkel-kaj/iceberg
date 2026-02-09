@@ -3,7 +3,6 @@ package cli
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/mikkel-kaj/iceberg/internal/config"
 	terraformprov "github.com/mikkel-kaj/iceberg/internal/infra/terraform"
@@ -25,25 +24,21 @@ func newServerDestroyCmd(cfgPath *string) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if strings.EqualFold(srv.Provisioner, provisionerTerraform) && srv.TerraformDir != "" {
-				if !terraformBinaryPresent() {
-					return fmt.Errorf("terraform is required to destroy %s (install terraform or switch provisioner manually)", name)
-				}
-				if err := newTerraformClient().DestroyServer(context.Background(), terraformprov.DestroyOptions{
-					WorkDir: srv.TerraformDir,
-					Token:   cfg.HetznerToken,
-				}); err != nil {
-					return err
-				}
-			} else {
-				h := newHetznerClient(cfg.HetznerToken)
-				_ = h.DeleteServer(context.Background(), srv.HetznerID)
-				if srv.SSHKeyID > 0 {
-					_ = h.DeleteSSHKey(context.Background(), srv.SSHKeyID)
-				}
-				if srv.FirewallID > 0 {
-					_ = h.DeleteFirewall(context.Background(), srv.FirewallID)
-				}
+			if srv.Provisioner != provisionerTerraform {
+				return fmt.Errorf("server %s is not terraform-managed (provisioner=%q); refusing API deletion", name, srv.Provisioner)
+			}
+			if !terraformBinaryPresent() {
+				return fmt.Errorf("terraform is required to destroy %s (install terraform and retry)", name)
+			}
+			tfDir := srv.TerraformDir
+			if tfDir == "" {
+				tfDir = terraformStateDir(*cfgPath, srv.Name)
+			}
+			if err := newTerraformClient().DestroyServer(context.Background(), terraformprov.DestroyOptions{
+				WorkDir: tfDir,
+				Token:   cfg.HetznerToken,
+			}); err != nil {
+				return err
 			}
 			cfg.RemoveServer(name)
 			if err := cfg.Save(*cfgPath); err != nil {

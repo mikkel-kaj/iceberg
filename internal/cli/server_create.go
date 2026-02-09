@@ -17,9 +17,7 @@ import (
 var bootstrapServer = bootstrapServerDefault
 
 const (
-	provisionerAuto      = "auto"
 	provisionerTerraform = "terraform"
-	provisionerAPI       = "api"
 )
 
 func newServerCmd(cfgPath *string) *cobra.Command {
@@ -29,8 +27,7 @@ func newServerCmd(cfgPath *string) *cobra.Command {
 }
 
 func newServerCreateCmd(cfgPath *string) *cobra.Command {
-	var provisionerMode string
-	cmd := &cobra.Command{
+	return &cobra.Command{
 		Use:   "create",
 		Short: "Create a new server",
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -38,11 +35,10 @@ func newServerCreateCmd(cfgPath *string) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			name := nextServerName(cfg.Servers)
-			selectedProvisioner, err := chooseProvisioner(provisionerMode)
-			if err != nil {
-				return err
+			if !terraformBinaryPresent() {
+				return fmt.Errorf("terraform is required for server provisioning; install terraform and retry")
 			}
+			name := nextServerName(cfg.Servers)
 
 			pub, prv, err := hetzner.GenerateSSHKeyPair()
 			if err != nil {
@@ -62,34 +58,25 @@ func newServerCreateCmd(cfgPath *string) *cobra.Command {
 				return err
 			}
 
-			var created createdServer
-			switch selectedProvisioner {
-			case provisionerTerraform:
-				tf := newTerraformClient()
-				tfDir := terraformStateDir(*cfgPath, name)
-				out, err := tf.CreateServer(context.Background(), terraformprov.CreateOptions{
-					WorkDir:      tfDir,
-					Name:         name,
-					SSHPublicKey: pub,
-					UserData:     cloudInit,
-					Token:        cfg.HetznerToken,
-				})
-				if err != nil {
-					return err
-				}
-				created = createdServer{
-					Provisioner:  provisionerTerraform,
-					TerraformDir: tfDir,
-					ServerID:     out.ServerID,
-					PublicIP:     out.IPv4,
-					SSHKeyID:     out.SSHKeyID,
-					FirewallID:   out.FirewallID,
-				}
-			default:
-				created, err = createServerViaAPI(context.Background(), cfg.HetznerToken, name, pub, cloudInit)
-				if err != nil {
-					return err
-				}
+			tf := newTerraformClient()
+			tfDir := terraformStateDir(*cfgPath, name)
+			out, err := tf.CreateServer(context.Background(), terraformprov.CreateOptions{
+				WorkDir:      tfDir,
+				Name:         name,
+				SSHPublicKey: pub,
+				UserData:     cloudInit,
+				Token:        cfg.HetznerToken,
+			})
+			if err != nil {
+				return err
+			}
+			created := createdServer{
+				Provisioner:  provisionerTerraform,
+				TerraformDir: tfDir,
+				ServerID:     out.ServerID,
+				PublicIP:     out.IPv4,
+				SSHKeyID:     out.SSHKeyID,
+				FirewallID:   out.FirewallID,
 			}
 
 			agentIP, err := bootstrapServer(context.Background(), name, created.PublicIP, agentToken, prv)
@@ -118,8 +105,6 @@ func newServerCreateCmd(cfgPath *string) *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&provisionerMode, "provisioner", provisionerAuto, "Provisioner to use (auto|terraform|api)")
-	return cmd
 }
 
 type createdServer struct {
@@ -131,79 +116,14 @@ type createdServer struct {
 	FirewallID   int64
 }
 
-func createServerViaAPI(ctx context.Context, hetznerToken, name, pub, cloudInit string) (createdServer, error) {
-	h := newHetznerClient(hetznerToken)
-	sshKey, err := h.CreateSSHKey(ctx, name+"-ssh", pub)
-	if err != nil {
-		return createdServer{}, err
-	}
-	fw, err := h.CreateFirewall(ctx, name+"-fw", hetzner.DefaultFirewallRules())
-	if err != nil {
-		_ = h.DeleteSSHKey(ctx, sshKey.ID)
-		return createdServer{}, err
-	}
-	srv, err := h.CreateServer(ctx, hetzner.CreateServerOpts{
-		Name:        name,
-		SSHKeyIDs:   []int64{sshKey.ID},
-		FirewallIDs: []int64{fw.ID},
-		UserData:    cloudInit,
-	})
-	if err != nil {
-		_ = h.DeleteSSHKey(ctx, sshKey.ID)
-		_ = h.DeleteFirewall(ctx, fw.ID)
-		return createdServer{}, err
-	}
-	return createdServer{
-		Provisioner: provisionerAPI,
-		ServerID:    srv.ID,
-		PublicIP:    srv.IPv4,
-		SSHKeyID:    sshKey.ID,
-		FirewallID:  fw.ID,
-	}, nil
-}
-
 func rollbackCreatedServer(ctx context.Context, hetznerToken string, created createdServer) error {
-	switch created.Provisioner {
-	case provisionerTerraform:
-		if created.TerraformDir == "" {
-			return nil
-		}
-		return newTerraformClient().DestroyServer(ctx, terraformprov.DestroyOptions{
-			WorkDir: created.TerraformDir,
-			Token:   hetznerToken,
-		})
-	default:
-		h := newHetznerClient(hetznerToken)
-		if created.ServerID > 0 {
-			_ = h.DeleteServer(ctx, created.ServerID)
-		}
-		if created.SSHKeyID > 0 {
-			_ = h.DeleteSSHKey(ctx, created.SSHKeyID)
-		}
-		if created.FirewallID > 0 {
-			_ = h.DeleteFirewall(ctx, created.FirewallID)
-		}
+	if created.TerraformDir == "" {
 		return nil
 	}
-}
-
-func chooseProvisioner(mode string) (string, error) {
-	switch strings.ToLower(strings.TrimSpace(mode)) {
-	case "", provisionerAuto:
-		if terraformBinaryPresent() {
-			return provisionerTerraform, nil
-		}
-		return provisionerAPI, nil
-	case provisionerTerraform:
-		if !terraformBinaryPresent() {
-			return "", fmt.Errorf("terraform provisioner selected but terraform binary is not installed")
-		}
-		return provisionerTerraform, nil
-	case provisionerAPI:
-		return provisionerAPI, nil
-	default:
-		return "", fmt.Errorf("invalid provisioner %q (allowed: auto, terraform, api)", mode)
-	}
+	return newTerraformClient().DestroyServer(ctx, terraformprov.DestroyOptions{
+		WorkDir: created.TerraformDir,
+		Token:   hetznerToken,
+	})
 }
 
 func terraformStateDir(cfgPath, name string) string {
