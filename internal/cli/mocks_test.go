@@ -135,10 +135,10 @@ func (m *mockAgent) Logs(ctx context.Context, name string) (io.ReadCloser, error
 }
 
 type mockTerraform struct {
-	createRes   *terraformprov.CreateResult
-	createErr   error
-	destroyErr  error
-	createCalls []terraformprov.CreateOptions
+	createRes    *terraformprov.CreateResult
+	createErr    error
+	destroyErr   error
+	createCalls  []terraformprov.CreateOptions
 	destroyCalls []terraformprov.DestroyOptions
 }
 
@@ -156,4 +156,48 @@ func (m *mockTerraform) CreateServer(ctx context.Context, opts terraformprov.Cre
 func (m *mockTerraform) DestroyServer(ctx context.Context, opts terraformprov.DestroyOptions) error {
 	m.destroyCalls = append(m.destroyCalls, opts)
 	return m.destroyErr
+}
+
+type mockControl struct {
+	createRes *ServerCreateResult
+	createErr error
+	createCfg string
+
+	destroyErr  error
+	destroyCfg  string
+	destroyName string
+
+	deployRes *DeployResult
+	deployErr error
+	deployCfg string
+	deployIn  DeployInput
+}
+
+func (m *mockControl) CreateServer(ctx context.Context, cfgPath string) (*ServerCreateResult, error) {
+	m.createCfg = cfgPath
+	if m.createErr != nil {
+		return nil, m.createErr
+	}
+	if m.createRes == nil {
+		m.createRes = &ServerCreateResult{Name: "iceberg-01", PublicIP: "1.2.3.4", AgentIP: "100.64.0.10", Provisioner: provisionerTerraform}
+	}
+	return m.createRes, nil
+}
+
+func (m *mockControl) DestroyServer(ctx context.Context, cfgPath, name string) error {
+	m.destroyCfg = cfgPath
+	m.destroyName = name
+	return m.destroyErr
+}
+
+func (m *mockControl) Deploy(ctx context.Context, cfgPath string, in DeployInput) (*DeployResult, error) {
+	m.deployCfg = cfgPath
+	m.deployIn = in
+	if m.deployErr != nil {
+		return nil, m.deployErr
+	}
+	if m.deployRes == nil {
+		m.deployRes = &DeployResult{ServiceName: "uptime-kuma", ServerName: "iceberg-01"}
+	}
+	return m.deployRes, nil
 }

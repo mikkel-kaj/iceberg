@@ -1,7 +1,8 @@
 # Iceberg
 
 Iceberg is a self-hosting control plane with:
-- `iceberg` CLI for provisioning and operations
+- `iceberg` CLI as a thin wrapper around control APIs
+- `iceberg control serve` local control agent (Terraform + Bitwarden + orchestration)
 - `iceberg-agent` for on-server deployment/health APIs
 - Built-in service catalog (Uptime Kuma, Plausible, n8n, Gitea, Supabase)
 
@@ -42,6 +43,7 @@ make lint
 ## CLI commands
 
 ```bash
+iceberg control serve
 iceberg init
 iceberg server create
 iceberg server list
@@ -54,6 +56,8 @@ iceberg logs <service>
 iceberg destroy <service>
 iceberg catalog
 ```
+
+By default, the CLI calls the control agent at `http://127.0.0.1:19090` (`--control-url`).
 
 `iceberg server create` now bootstraps the server automatically:
 - Builds a Linux `iceberg-agent` binary (or uses `ICEBERG_AGENT_BINARY` if provided)
@@ -76,7 +80,7 @@ iceberg deploy --image my-api:latest --name my-api --port 8080 \
   --env API_KEY=bw://<item-id>#field:API_KEY
 ```
 
-Resolution happens at deploy time using local `bw` CLI, so plaintext secrets are not stored in config or compose templates.
+Resolution happens in the control agent at deploy time using `bw` CLI, so plaintext secrets are not stored in config or compose templates.
 `bw` must be installed and unlocked/authenticated in your current shell session.
 
 ## Agent endpoints

@@ -16,7 +16,7 @@ func TestRootHelpAndVersion(t *testing.T) {
 		t.Fatal(err)
 	}
 	out := buf.String()
-	for _, required := range []string{"init", "server", "deploy", "status", "destroy", "logs", "catalog"} {
+	for _, required := range []string{"init", "server", "deploy", "status", "destroy", "logs", "catalog", "control"} {
 		if !strings.Contains(out, required) {
 			t.Fatalf("help missing %s", required)
 		}

@@ -8,21 +8,23 @@ import (
 )
 
 func NewRootCmd(version string) *cobra.Command {
-	var cfgPath string
+	var cfgPath, controlURL string
 	root := &cobra.Command{
 		Use:   "iceberg",
 		Short: "Iceberg CLI",
 	}
 	root.PersistentFlags().StringVar(&cfgPath, "config", config.DefaultPath(), "Path to Iceberg config")
+	root.PersistentFlags().StringVar(&controlURL, "control-url", "http://127.0.0.1:19090", "Control agent URL (empty to run command logic locally)")
 
 	root.AddCommand(newVersionCmd(version))
 	root.AddCommand(newInitCmd(&cfgPath))
-	root.AddCommand(newServerCmd(&cfgPath))
-	root.AddCommand(newDeployCmd(&cfgPath))
+	root.AddCommand(newServerCmdWithControl(&cfgPath, &controlURL))
+	root.AddCommand(newDeployCmdWithControl(&cfgPath, &controlURL))
 	root.AddCommand(newStatusCmd(&cfgPath))
 	root.AddCommand(newDestroyCmd(&cfgPath))
 	root.AddCommand(newLogsCmd(&cfgPath))
 	root.AddCommand(newCatalogCmd())
+	root.AddCommand(newControlCmd(&cfgPath, &controlURL))
 
 	return root
 }
