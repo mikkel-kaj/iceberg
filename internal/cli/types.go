@@ -8,6 +8,7 @@ import (
 	"github.com/mikkel-kaj/iceberg/internal/cloudflare"
 	"github.com/mikkel-kaj/iceberg/internal/compose"
 	"github.com/mikkel-kaj/iceberg/internal/hetzner"
+	terraformprov "github.com/mikkel-kaj/iceberg/internal/infra/terraform"
 )
 
 type HetznerAPI interface {
@@ -33,4 +34,9 @@ type AgentAPI interface {
 	Destroy(ctx context.Context, name string) error
 	Status(ctx context.Context) (*agentclient.StatusResponse, error)
 	Logs(ctx context.Context, name string) (io.ReadCloser, error)
+}
+
+type TerraformAPI interface {
+	CreateServer(ctx context.Context, opts terraformprov.CreateOptions) (*terraformprov.CreateResult, error)
+	DestroyServer(ctx context.Context, opts terraformprov.DestroyOptions) error
 }

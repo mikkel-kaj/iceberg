@@ -24,6 +24,10 @@ func newDeployCmd(cfgPath *string) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			resolvedEnv, err := resolveEnvSecrets(context.Background(), parseEnvPairs(envPairs))
+			if err != nil {
+				return err
+			}
 			server, err := pickServer(cfg, serverName)
 			if err != nil {
 				return err
@@ -38,7 +42,7 @@ func newDeployCmd(cfgPath *string) *cobra.Command {
 				if port <= 0 {
 					return fmt.Errorf("--image requires --port")
 				}
-				spec = compose.DeploySpec{Services: []compose.ServiceSpec{{Name: name, Image: image, Port: port, Env: parseEnvPairs(envPairs), Domain: domain}}}
+				spec = compose.DeploySpec{Services: []compose.ServiceSpec{{Name: name, Image: image, Port: port, Env: resolvedEnv, Domain: domain}}}
 				serviceName = name
 			} else {
 				if len(args) != 1 {
@@ -48,7 +52,7 @@ func newDeployCmd(cfgPath *string) *cobra.Command {
 				if err != nil {
 					return err
 				}
-				specPtr, err := entry.BuildSpec(domainOrDefault(domain, cfg.DefaultDomain), parseEnvPairs(envPairs))
+				specPtr, err := entry.BuildSpec(domainOrDefault(domain, cfg.DefaultDomain), resolvedEnv)
 				if err != nil {
 					return err
 				}

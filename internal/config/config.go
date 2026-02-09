@@ -28,6 +28,8 @@ type ServerEntry struct {
 	HetznerID         int64  `yaml:"hetzner_id"`
 	IP                string `yaml:"ip"` // agent endpoint IP (prefer Tailscale)
 	PublicIP          string `yaml:"public_ip,omitempty"`
+	Provisioner       string `yaml:"provisioner,omitempty"`
+	TerraformDir      string `yaml:"terraform_dir,omitempty"`
 	AgentToken        string `yaml:"agent_token"`
 	SSHKeyID          int64  `yaml:"ssh_key_id,omitempty"`
 	FirewallID        int64  `yaml:"firewall_id,omitempty"`

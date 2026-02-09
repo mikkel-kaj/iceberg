@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"context"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -57,5 +58,35 @@ func TestDeployCatalogAndManualDNS(t *testing.T) {
 	}
 	if !strings.Contains(buf.String(), "Manual DNS required: create A record status.test.com -> 1.2.3.4") {
 		t.Fatalf("expected manual dns message got %q", buf.String())
+	}
+}
+
+func TestDeployResolvesBitwardenEnv(t *testing.T) {
+	oldA := newAgentClient
+	oldResolve := resolveBitwardenSecret
+	defer func() {
+		newAgentClient = oldA
+		resolveBitwardenSecret = oldResolve
+	}()
+	ma := &mockAgent{}
+	newAgentClient = func(baseURL, token string) AgentAPI { return ma }
+	resolveBitwardenSecret = func(ctx context.Context, ref string) (string, error) {
+		if ref != "bw://item-1" {
+			t.Fatalf("unexpected ref %q", ref)
+		}
+		return "super-secret", nil
+	}
+
+	cfgPath := filepath.Join(t.TempDir(), "config.yaml")
+	cfg := &config.Config{Servers: []config.ServerEntry{{Name: "iceberg-01", IP: "100.64.0.1", AgentToken: "tok"}}}
+	_ = cfg.Save(cfgPath)
+
+	cmd := newDeployCmd(&cfgPath)
+	cmd.SetArgs([]string{"--image", "nginx:latest", "--name", "my-nginx", "--port", "80", "--env", "API_KEY=bw://item-1"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if got := ma.deploySpec.Services[0].Env["API_KEY"]; got != "super-secret" {
+		t.Fatalf("unexpected resolved env value %q", got)
 	}
 }

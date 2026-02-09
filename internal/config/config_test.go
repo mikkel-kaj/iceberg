@@ -34,7 +34,15 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 			Provider:        "cloudflare",
 			CloudflareToken: "cf",
 		},
-		Servers: []ServerEntry{{Name: "iceberg-01", IP: "100.64.0.10", PublicIP: "1.2.3.4", AgentToken: "a", HetznerID: 42}},
+		Servers: []ServerEntry{{
+			Name:         "iceberg-01",
+			IP:           "100.64.0.10",
+			PublicIP:     "1.2.3.4",
+			Provisioner:  "terraform",
+			TerraformDir: "/tmp/tf/iceberg-01",
+			AgentToken:   "a",
+			HetznerID:    42,
+		}},
 	}
 	if err := cfg.Save(path); err != nil {
 		t.Fatal(err)
@@ -48,6 +56,9 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 	}
 	if loaded.Servers[0].PublicIP != "1.2.3.4" || loaded.Servers[0].IP != "100.64.0.10" {
 		t.Fatalf("unexpected server ip fields %#v", loaded.Servers[0])
+	}
+	if loaded.Servers[0].Provisioner != "terraform" || loaded.Servers[0].TerraformDir != "/tmp/tf/iceberg-01" {
+		t.Fatalf("unexpected provisioner fields %#v", loaded.Servers[0])
 	}
 }
 

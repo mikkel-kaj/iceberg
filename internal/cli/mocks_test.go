@@ -11,6 +11,7 @@ import (
 	"github.com/mikkel-kaj/iceberg/internal/cloudflare"
 	"github.com/mikkel-kaj/iceberg/internal/compose"
 	"github.com/mikkel-kaj/iceberg/internal/hetzner"
+	terraformprov "github.com/mikkel-kaj/iceberg/internal/infra/terraform"
 )
 
 type mockHetzner struct {
@@ -131,4 +132,28 @@ func (m *mockAgent) Logs(ctx context.Context, name string) (io.ReadCloser, error
 		m.logsBody = "line\n"
 	}
 	return io.NopCloser(strings.NewReader(m.logsBody)), nil
+}
+
+type mockTerraform struct {
+	createRes   *terraformprov.CreateResult
+	createErr   error
+	destroyErr  error
+	createCalls []terraformprov.CreateOptions
+	destroyCalls []terraformprov.DestroyOptions
+}
+
+func (m *mockTerraform) CreateServer(ctx context.Context, opts terraformprov.CreateOptions) (*terraformprov.CreateResult, error) {
+	m.createCalls = append(m.createCalls, opts)
+	if m.createErr != nil {
+		return nil, m.createErr
+	}
+	if m.createRes == nil {
+		m.createRes = &terraformprov.CreateResult{ServerID: 11, IPv4: "1.2.3.4", SSHKeyID: 12, FirewallID: 13}
+	}
+	return m.createRes, nil
+}
+
+func (m *mockTerraform) DestroyServer(ctx context.Context, opts terraformprov.DestroyOptions) error {
+	m.destroyCalls = append(m.destroyCalls, opts)
+	return m.destroyErr
 }

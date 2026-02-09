@@ -43,11 +43,12 @@ make lint
 
 ```bash
 iceberg init
-iceberg server create
+iceberg server create --provisioner auto
 iceberg server list
 iceberg server destroy <name>
 iceberg deploy uptime-kuma --domain status.example.com
 iceberg deploy --image nginx:latest --name my-nginx --port 80
+iceberg deploy --image my-api:latest --name my-api --port 8080 --env API_KEY=bw://item-id#field:API_KEY
 iceberg status
 iceberg logs <service>
 iceberg destroy <service>
@@ -59,6 +60,25 @@ iceberg catalog
 - Uploads and installs `iceberg-agent` systemd service
 - Ensures Docker Compose is available (`docker compose` plugin or `docker-compose`)
 - Stores both agent endpoint IP (Tailscale) and public IP in config
+- Supports provisioners:
+  - `--provisioner auto` (default): Terraform if installed, otherwise direct Hetzner API
+  - `--provisioner terraform`: force Terraform
+  - `--provisioner api`: force direct Hetzner API
+  - Terraform mode requires local `terraform` binary and keeps state in `~/.iceberg/terraform/<server-name>`
+
+## Secret env values (Bitwarden CLI)
+
+For `iceberg deploy`, env values can reference Bitwarden secrets:
+
+```bash
+iceberg deploy --image my-api:latest --name my-api --port 8080 \
+  --env DB_PASSWORD=bw://<item-id> \
+  --env DB_USER=bw://<item-id>#username \
+  --env API_KEY=bw://<item-id>#field:API_KEY
+```
+
+Resolution happens at deploy time using local `bw` CLI, so plaintext secrets are not stored in config or compose templates.
+`bw` must be installed and unlocked/authenticated in your current shell session.
 
 ## Agent endpoints
 
